@@ -1,65 +1,69 @@
 module Main where
 
-data Player = Nobody | X | O deriving (Show, Eq)
+import Data.Char
+
+-- | TODO:
+--   Check if player has won
+--   Avoid crashes (e.g. if Pos is too big)
+
+data Owner = Nobody | X | O deriving (Show, Eq)
+
+other :: Owner -> Owner
+other o = case o of
+    X         -> O
+    O         -> X
+    otherwise -> Nobody
+
+type Move = Owner
+type Board = [Owner]
+
+-- Create a board with size (will be x * x)
+newBoard :: Int -> Board
+newBoard s = replicate size Nobody
+  where size = s * s
+
+intSquareRoot :: Int -> Int
+intSquareRoot n = try n
+  where try i | i*i > n   = try (i - 1)
+              | i*i <= n  = i
+
+makeMove :: Board -> Move -> Int -> Board
+makeMove b o p = swapElementAt b p o
+  where swapElementAt (x:xs) n e  | n == 0    = e : xs
+                                  | otherwise = x : swapElementAt xs (n-1) e
+
 data Pos = Pos Int Int deriving (Show)
 
-data Field = Field Pos Player deriving Show
-type Grid = [[Field]]
+posToField :: Pos -> Int -> Int
+posToField (Pos x y) l = y * (intSquareRoot l) + x
 
-newGrid xn yn =
-    map (\y -> map (\x -> Field (Pos x y) Nobody) [0..xn - 1]) [0..yn - 1]
+readPos :: String -> Pos
+readPos str = Pos x y
+  where
+        x = digitToInt $ str !! 0
+        y = digitToInt $ str !! 2
 
-hasSpace :: Field -> Bool
-hasSpace (Field _ p) = p == Nobody
+isMoveAllowedAt :: Board -> Pos -> Bool
+isMoveAllowedAt b p = b !! position == Nobody
+    where position = posToField p $ length b
 
-moveAllowed :: Grid -> Pos -> Bool
-moveAllowed g (Pos x y) = hasSpace $ (g !! y) !! x
+newRound b m = do
+    putStrLn $ "It's " ++ show m ++ " turn!"
+    putStrLn "Type in a position to take in the format x,y"
 
--- currentIndex, SearchedIndex, InList, new element
-replace :: Int -> Int -> [a] -> a -> [a]
-replace _ _ [] _ = []
-replace i goal (x:xs) e
-    | i == goal = e : xs
-    | otherwise = x : replace (i + 1) goal xs e
+    str <- getLine
+    let pos = readPos str
 
--- First int = current index
-replacePlayer :: Int -> Grid -> Pos -> Player -> Grid
-replacePlayer i (x:xs) pos@(Pos px y) p
-    | i == y    = replace 0 px x (Field pos p) : xs
-    | otherwise = x : replacePlayer (i + 1) xs pos p
-
--- Only use if allowed
-makeMove :: Grid -> Pos -> Player -> Grid
-makeMove g pos@(Pos x y) p
-    | moveAllowed g pos = replacePlayer 0 g pos p
-    | otherwise         = g
-
-type CurrentMove = Player
-
-getSymbolOfField :: Field -> String
-getSymbolOfField (Field _ p)
-    | p == Nobody = "-"
-    | otherwise   =  show p
-
-gridToStr :: Grid -> [String]
-gridToStr g = concat $ map (\l -> (map (\f -> getSymbolOfField f) l) ++ newLine) g
-  where newLine = ["\n"]
-
-newRound :: Grid -> CurrentMove -> IO ()
-newRound g m = do
-    putStrLn $ concat $ gridToStr g
-    putStrLn $ "Current move: " ++ show m
-    putStrLn "What position would you like to take? Format: x,y"
-    posStr <- getLine
-
-    putStrLn $ show $ moveAllowed g (Pos 3 2)
-    putStrLn "Skidaddle Skidoodle"
-
-    -- case (moveAllowed g (Pos 3 2)) of
-    --    False -> newRound g m
-    --    True -> putStrLn "Allowed!"
+    -- Check if won
+    if isMoveAllowedAt b pos
+      then do
+        newRound (makeMove b m . posToField pos $ length b) (other m)
+      else do
+        putStrLn $ "WARNING: " ++ str ++ " is taken!"
+        newRound b m
 
 main :: IO ()
 main = do
-	newRound (newGrid 3 3) X
-	putStrLn "It works"
+  putStrLn "Positions start at x and y = 0!"
+  newRound (newBoard 3) X
+  putStrLn "It works"
