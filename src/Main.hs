@@ -38,6 +38,7 @@ setOwner b v o = replace b
   where replace (x@(Pos vec _):xs)  | vec == v  = (Pos vec o) : xs
                                     | otherwise = x : replace xs
 
+-- NOTE: Currently only supports one digit cords
 strCoordToVec :: String -> Vector2D
 strCoordToVec s = (x,y)
   where x = digitToInt $ s !! 0
@@ -48,13 +49,20 @@ runGame g@(Game b t) = do
     putStrLn $ "Current Move: " ++ show t
     putStrLn "Put in the Coordinates in (x,y) format"
     coords <- getLine
-
     let vec = strCoordToVec coords
 
     case moveAllowed vec b of
       True  -> do putStrLn "Set!"
+                  case (length availablePos == 0) of
+                    True -> do  putStrLn "Game Over!"
+                                return ()
                   runGame $ Game (setOwner b vec t) (getOther t)
       False -> do putStrLn "Not Allowed!"
                   runGame g
   where getOther p  | p == O    = X
                     | otherwise = O
+        availablePos = filter (\(Pos _ o) -> o == Nobody) b
+
+main :: IO ()
+main = do
+  runGame $ newGame 3 O
